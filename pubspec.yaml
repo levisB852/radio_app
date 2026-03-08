@@ -1,5 +1,5 @@
 name: radio_zeno_app
-description: "A new Flutter project."
+description: "Radio Adventista en Reforma"
 publish_to: 'none'
 
 version: 1.0.0+1
@@ -13,6 +13,7 @@ dependencies:
 
   cupertino_icons: ^1.0.8
   just_audio: ^0.10.5
+  just_audio_background: ^0.0.1-beta.17
   url_launcher: ^6.3.2
 
 dev_dependencies:
@@ -24,4 +25,4 @@ flutter:
   uses-material-design: true
 
   assets:
-    - assets/logo.jpg
+    - assets/

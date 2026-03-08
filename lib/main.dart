@@ -1,8 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
+import 'package:just_audio_background/just_audio_background.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  await JustAudioBackground.init(
+    androidNotificationChannelId: 'com.radiozeno.app.audio',
+    androidNotificationChannelName: 'Radio en vivo',
+    androidNotificationOngoing: true,
+  );
+
   runApp(const MyRadioApp());
 }
 
@@ -15,8 +24,12 @@ class MyRadioApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       title: 'Radio Adventista en Reforma',
       theme: ThemeData(
-        brightness: Brightness.dark,
+        useMaterial3: true,
         fontFamily: 'Roboto',
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xFF0F4C81),
+          brightness: Brightness.dark,
+        ),
       ),
       home: const RadioHomePage(),
     );
@@ -34,32 +47,95 @@ class _RadioHomePageState extends State<RadioHomePage> {
   final AudioPlayer _player = AudioPlayer();
 
   bool isPlaying = false;
-  bool isLoading = false;
+  bool isLoading = true;
+  bool isReady = false;
 
   final String streamUrl = 'https://stream.zeno.fm/rghmon0t9xauv';
   final String zenoUrl = 'https://zeno.fm/radio/radio-adventista-en-reforma/';
-  final String facebookUrl = 'https://facebook.com/';
+
+  // CAMBIA ESTOS POR LOS REALES
+  final String facebookUrl = 'https://www.facebook.com/';
   final String whatsappUrl = 'https://wa.me/50300000000';
 
-  Future<void> playRadio() async {
+  @override
+  void initState() {
+    super.initState();
+    _prepareRadio();
+
+    _player.playerStateStream.listen((state) {
+      if (!mounted) return;
+
+      setState(() {
+        isPlaying = state.playing;
+        if (state.processingState != ProcessingState.loading &&
+            state.processingState != ProcessingState.buffering) {
+          isLoading = false;
+        }
+      });
+    });
+  }
+
+  Future<void> _prepareRadio() async {
     try {
       setState(() {
         isLoading = true;
       });
 
-      await _player.setUrl(streamUrl);
+      await _player.setAudioSource(
+        AudioSource.uri(
+          Uri.parse(streamUrl),
+          tag: MediaItem(
+            id: 'radio-adventista-en-reforma',
+            album: 'Radio Adventista en Reforma',
+            title: 'Transmisión en vivo',
+            artUri: Uri.parse(
+              'https://upload.wikimedia.org/wikipedia/commons/a/ac/No_image_available.svg',
+            ),
+          ),
+        ),
+      );
+
+      if (!mounted) return;
+      setState(() {
+        isReady = true;
+        isLoading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        isReady = false;
+        isLoading = false;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('No se pudo preparar la radio: $e')),
+      );
+    }
+  }
+
+  Future<void> playRadio() async {
+    try {
+      if (!isReady) {
+        await _prepareRadio();
+      }
+
+      setState(() {
+        isLoading = true;
+      });
+
       await _player.play();
 
+      if (!mounted) return;
       setState(() {
         isPlaying = true;
         isLoading = false;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         isLoading = false;
       });
 
-      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error al reproducir: $e')),
       );
@@ -68,8 +144,11 @@ class _RadioHomePageState extends State<RadioHomePage> {
 
   Future<void> pauseRadio() async {
     await _player.pause();
+
+    if (!mounted) return;
     setState(() {
       isPlaying = false;
+      isLoading = false;
     });
   }
 
@@ -82,13 +161,22 @@ class _RadioHomePageState extends State<RadioHomePage> {
   }
 
   Future<void> openLink(String link) async {
-    final Uri url = Uri.parse(link);
-    if (await canLaunchUrl(url)) {
-      await launchUrl(url, mode: LaunchMode.externalApplication);
-    } else {
+    try {
+      final uri = Uri.parse(link);
+      final ok = await launchUrl(
+        uri,
+        mode: LaunchMode.externalApplication,
+      );
+
+      if (!ok && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No se pudo abrir el enlace')),
+        );
+      }
+    } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No se pudo abrir el enlace')),
+        SnackBar(content: Text('Error al abrir enlace: $e')),
       );
     }
   }
@@ -99,17 +187,6 @@ class _RadioHomePageState extends State<RadioHomePage> {
     super.dispose();
   }
 
-  Widget buildWaveBar(double height, double opacity) {
-    return Container(
-      width: 8,
-      height: height,
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(opacity),
-        borderRadius: BorderRadius.circular(20),
-      ),
-    );
-  }
-
   Widget actionButton({
     required IconData icon,
     required String text,
@@ -118,13 +195,13 @@ class _RadioHomePageState extends State<RadioHomePage> {
     return Expanded(
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(18),
-        child: Ink(
-          padding: const EdgeInsets.symmetric(vertical: 14),
+        borderRadius: BorderRadius.circular(20),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 16),
           decoration: BoxDecoration(
             color: Colors.white.withOpacity(0.08),
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: Colors.white.withOpacity(0.08)),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: Colors.white.withOpacity(0.10)),
           ),
           child: Column(
             children: [
@@ -134,10 +211,10 @@ class _RadioHomePageState extends State<RadioHomePage> {
                 text,
                 style: const TextStyle(
                   color: Colors.white,
-                  fontSize: 13,
                   fontWeight: FontWeight.w600,
+                  fontSize: 13,
                 ),
-              )
+              ),
             ],
           ),
         ),
@@ -145,18 +222,37 @@ class _RadioHomePageState extends State<RadioHomePage> {
     );
   }
 
+  Widget waveBar(double height, double opacity) {
+    return Container(
+      width: 7,
+      height: height,
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(opacity),
+        borderRadius: BorderRadius.circular(20),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final statusText = isLoading
+        ? 'Conectando transmisión...'
+        : isPlaying
+            ? 'Ahora estás escuchando la radio'
+            : isReady
+                ? 'Lista para reproducir'
+                : 'No se pudo conectar';
+
     return Scaffold(
       body: Container(
         width: double.infinity,
         decoration: const BoxDecoration(
           gradient: LinearGradient(
             colors: [
-              Color(0xff09111f),
-              Color(0xff15243d),
-              Color(0xff1d3557),
-              Color(0xff233b6e),
+              Color(0xFF081521),
+              Color(0xFF10263A),
+              Color(0xFF163A57),
+              Color(0xFF1D4E75),
             ],
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
@@ -164,167 +260,165 @@ class _RadioHomePageState extends State<RadioHomePage> {
         ),
         child: SafeArea(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
             child: Column(
               children: [
-                const SizedBox(height: 10),
+                const SizedBox(height: 8),
 
                 const Text(
                   'RADIO ONLINE',
                   style: TextStyle(
                     color: Colors.white70,
-                    letterSpacing: 3,
                     fontSize: 12,
-                    fontWeight: FontWeight.w600,
+                    letterSpacing: 3,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
 
-                const SizedBox(height: 18),
-
-                Container(
-                  width: 170,
-                  height: 170,
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: Colors.white.withOpacity(0.15),
-                      width: 2,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.blue.withOpacity(0.25),
-                        blurRadius: 25,
-                        spreadRadius: 5,
-                      ),
-                    ],
-                  ),
-                  child: ClipOval(
-                    child: Image.asset(
-                      'assets/logo.jpg',
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) {
-                        return Container(
-                          color: Colors.white.withOpacity(0.08),
-                          child: const Icon(
-                            Icons.radio,
-                            size: 80,
-                            color: Colors.white,
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                ),
-
-                const SizedBox(height: 24),
-
-                const Text(
-                  'Radio Adventista en Reforma',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 28,
-                    height: 1.2,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                ),
-
-                const SizedBox(height: 12),
-
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: isPlaying
-                        ? Colors.redAccent.withOpacity(0.18)
-                        : Colors.white.withOpacity(0.08),
-                    borderRadius: BorderRadius.circular(30),
-                    border: Border.all(
-                      color: isPlaying
-                          ? Colors.redAccent.withOpacity(0.5)
-                          : Colors.white.withOpacity(0.10),
-                    ),
-                  ),
-                  child: Text(
-                    isPlaying ? '● EN DIRECTO' : '● LISTA PARA REPRODUCIR',
-                    style: TextStyle(
-                      color: isPlaying ? Colors.redAccent : Colors.white70,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 1.2,
-                    ),
-                  ),
-                ),
-
-                const SizedBox(height: 28),
+                const SizedBox(height: 20),
 
                 Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.all(22),
+                  padding: const EdgeInsets.all(24),
                   decoration: BoxDecoration(
                     color: Colors.white.withOpacity(0.08),
-                    borderRadius: BorderRadius.circular(28),
-                    border: Border.all(
-                      color: Colors.white.withOpacity(0.10),
-                    ),
+                    borderRadius: BorderRadius.circular(30),
+                    border: Border.all(color: Colors.white.withOpacity(0.10)),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.18),
+                        blurRadius: 20,
+                        offset: const Offset(0, 8),
+                      ),
+                    ],
                   ),
                   child: Column(
                     children: [
+                      Container(
+                        width: 165,
+                        height: 165,
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: Colors.white.withOpacity(0.15),
+                            width: 2,
+                          ),
+                        ),
+                        child: ClipOval(
+                          child: Image.asset(
+                            'assets/logo.jpg',
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) {
+                              return Container(
+                                color: Colors.white.withOpacity(0.08),
+                                child: const Icon(
+                                  Icons.radio,
+                                  color: Colors.white,
+                                  size: 75,
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      ),
+
+                      const SizedBox(height: 22),
+
+                      const Text(
+                        'Radio Adventista en Reforma',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 28,
+                          height: 1.2,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+
+                      const SizedBox(height: 14),
+
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          color: isPlaying
+                              ? Colors.redAccent.withOpacity(0.15)
+                              : Colors.white.withOpacity(0.08),
+                          borderRadius: BorderRadius.circular(30),
+                          border: Border.all(
+                            color: isPlaying
+                                ? Colors.redAccent.withOpacity(0.45)
+                                : Colors.white.withOpacity(0.10),
+                          ),
+                        ),
+                        child: Text(
+                          isPlaying ? '● EN DIRECTO' : '● TRANSMISIÓN ONLINE',
+                          style: TextStyle(
+                            color:
+                                isPlaying ? Colors.redAccent : Colors.white70,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 1.2,
+                          ),
+                        ),
+                      ),
+
+                      const SizedBox(height: 20),
+
                       Text(
-                        isLoading
-                            ? 'Conectando transmisión...'
-                            : isPlaying
-                                ? 'Ahora estás escuchando la radio'
-                                : 'Presiona el botón para escuchar en vivo',
+                        statusText,
                         textAlign: TextAlign.center,
                         style: const TextStyle(
                           color: Colors.white70,
                           fontSize: 15,
                         ),
                       ),
+
                       const SizedBox(height: 24),
 
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
-                          buildWaveBar(18, 0.35),
-                          const SizedBox(width: 6),
-                          buildWaveBar(32, 0.50),
-                          const SizedBox(width: 6),
-                          buildWaveBar(48, 0.75),
-                          const SizedBox(width: 6),
-                          buildWaveBar(62, 1),
-                          const SizedBox(width: 6),
-                          buildWaveBar(42, 0.70),
-                          const SizedBox(width: 6),
-                          buildWaveBar(28, 0.45),
-                          const SizedBox(width: 6),
-                          buildWaveBar(18, 0.35),
+                          waveBar(18, 0.35),
+                          const SizedBox(width: 5),
+                          waveBar(28, 0.45),
+                          const SizedBox(width: 5),
+                          waveBar(46, 0.70),
+                          const SizedBox(width: 5),
+                          waveBar(62, 1),
+                          const SizedBox(width: 5),
+                          waveBar(46, 0.70),
+                          const SizedBox(width: 5),
+                          waveBar(28, 0.45),
+                          const SizedBox(width: 5),
+                          waveBar(18, 0.35),
                         ],
                       ),
 
-                      const SizedBox(height: 30),
+                      const SizedBox(height: 28),
 
                       GestureDetector(
                         onTap: toggleRadio,
                         child: Container(
-                          width: 110,
-                          height: 110,
+                          width: 108,
+                          height: 108,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
                             gradient: const LinearGradient(
                               colors: [
-                                Color(0xff3b82f6),
-                                Color(0xff2563eb),
+                                Color(0xFF3B82F6),
+                                Color(0xFF2563EB),
                               ],
                               begin: Alignment.topLeft,
                               end: Alignment.bottomRight,
                             ),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.blueAccent.withOpacity(0.40),
-                                blurRadius: 22,
+                                color: Colors.blueAccent.withOpacity(0.35),
+                                blurRadius: 20,
                                 spreadRadius: 4,
                               ),
                             ],
@@ -343,14 +437,14 @@ class _RadioHomePageState extends State<RadioHomePage> {
                                     isPlaying
                                         ? Icons.pause_rounded
                                         : Icons.play_arrow_rounded,
-                                    size: 58,
                                     color: Colors.white,
+                                    size: 56,
                                   ),
                           ),
                         ),
                       ),
 
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 14),
 
                       Text(
                         isPlaying ? 'Toca para pausar' : 'Toca para reproducir',
@@ -363,7 +457,7 @@ class _RadioHomePageState extends State<RadioHomePage> {
                   ),
                 ),
 
-                const SizedBox(height: 24),
+                const SizedBox(height: 22),
 
                 Row(
                   children: [
@@ -395,9 +489,7 @@ class _RadioHomePageState extends State<RadioHomePage> {
                   decoration: BoxDecoration(
                     color: Colors.white.withOpacity(0.06),
                     borderRadius: BorderRadius.circular(22),
-                    border: Border.all(
-                      color: Colors.white.withOpacity(0.08),
-                    ),
+                    border: Border.all(color: Colors.white.withOpacity(0.08)),
                   ),
                   child: const Column(
                     children: [
