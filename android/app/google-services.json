@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "67049626395",
+    "project_id": "radio-adventista-reforma",
+    "storage_bucket": "radio-adventista-reforma.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:67049626395:android:bcf4f65de8442caab0d1be",
+        "android_client_info": {
+          "package_name": "com.example.radio_zeno_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDvbNFmJvoyV1Qitexa6ixlmhvUkwBuA0M"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

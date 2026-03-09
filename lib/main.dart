@@ -1,17 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
-import 'package:just_audio_background/just_audio_background.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-Future<void> main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-
-  await JustAudioBackground.init(
-    androidNotificationChannelId: 'com.radiozeno.app.audio',
-    androidNotificationChannelName: 'Radio en vivo',
-    androidNotificationOngoing: true,
-  );
-
+void main() {
   runApp(const MyRadioApp());
 }
 
@@ -52,8 +43,6 @@ class _RadioHomePageState extends State<RadioHomePage> {
 
   final String streamUrl = 'https://stream.zeno.fm/rghmon0t9xauv';
   final String zenoUrl = 'https://zeno.fm/radio/radio-adventista-en-reforma/';
-
-  // CAMBIA ESTOS POR LOS REALES
   final String facebookUrl = 'https://www.facebook.com/';
   final String whatsappUrl = 'https://wa.me/50300000000';
 
@@ -82,17 +71,7 @@ class _RadioHomePageState extends State<RadioHomePage> {
       });
 
       await _player.setAudioSource(
-        AudioSource.uri(
-          Uri.parse(streamUrl),
-          tag: MediaItem(
-            id: 'radio-adventista-en-reforma',
-            album: 'Radio Adventista en Reforma',
-            title: 'Transmisión en vivo',
-            artUri: Uri.parse(
-              'https://upload.wikimedia.org/wikipedia/commons/a/ac/No_image_available.svg',
-            ),
-          ),
-        ),
+        AudioSource.uri(Uri.parse(streamUrl)),
       );
 
       if (!mounted) return;
@@ -163,10 +142,7 @@ class _RadioHomePageState extends State<RadioHomePage> {
   Future<void> openLink(String link) async {
     try {
       final uri = Uri.parse(link);
-      final ok = await launchUrl(
-        uri,
-        mode: LaunchMode.externalApplication,
-      );
+      final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
 
       if (!ok && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -264,7 +240,6 @@ class _RadioHomePageState extends State<RadioHomePage> {
             child: Column(
               children: [
                 const SizedBox(height: 8),
-
                 const Text(
                   'RADIO ONLINE',
                   style: TextStyle(
@@ -274,9 +249,7 @@ class _RadioHomePageState extends State<RadioHomePage> {
                     fontWeight: FontWeight.w700,
                   ),
                 ),
-
                 const SizedBox(height: 20),
-
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(24),
@@ -322,9 +295,7 @@ class _RadioHomePageState extends State<RadioHomePage> {
                           ),
                         ),
                       ),
-
                       const SizedBox(height: 22),
-
                       const Text(
                         'Radio Adventista en Reforma',
                         textAlign: TextAlign.center,
@@ -335,9 +306,7 @@ class _RadioHomePageState extends State<RadioHomePage> {
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-
                       const SizedBox(height: 14),
-
                       Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 16,
@@ -357,16 +326,13 @@ class _RadioHomePageState extends State<RadioHomePage> {
                         child: Text(
                           isPlaying ? '● EN DIRECTO' : '● TRANSMISIÓN ONLINE',
                           style: TextStyle(
-                            color:
-                                isPlaying ? Colors.redAccent : Colors.white70,
+                            color: isPlaying ? Colors.redAccent : Colors.white70,
                             fontWeight: FontWeight.bold,
                             letterSpacing: 1.2,
                           ),
                         ),
                       ),
-
                       const SizedBox(height: 20),
-
                       Text(
                         statusText,
                         textAlign: TextAlign.center,
@@ -375,9 +341,7 @@ class _RadioHomePageState extends State<RadioHomePage> {
                           fontSize: 15,
                         ),
                       ),
-
                       const SizedBox(height: 24),
-
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         crossAxisAlignment: CrossAxisAlignment.end,
@@ -397,9 +361,7 @@ class _RadioHomePageState extends State<RadioHomePage> {
                           waveBar(18, 0.35),
                         ],
                       ),
-
                       const SizedBox(height: 28),
-
                       GestureDetector(
                         onTap: toggleRadio,
                         child: Container(
@@ -443,9 +405,7 @@ class _RadioHomePageState extends State<RadioHomePage> {
                           ),
                         ),
                       ),
-
                       const SizedBox(height: 14),
-
                       Text(
                         isPlaying ? 'Toca para pausar' : 'Toca para reproducir',
                         style: const TextStyle(
@@ -456,9 +416,7 @@ class _RadioHomePageState extends State<RadioHomePage> {
                     ],
                   ),
                 ),
-
                 const SizedBox(height: 22),
-
                 Row(
                   children: [
                     actionButton(
@@ -480,9 +438,7 @@ class _RadioHomePageState extends State<RadioHomePage> {
                     ),
                   ],
                 ),
-
                 const SizedBox(height: 24),
-
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(18),
