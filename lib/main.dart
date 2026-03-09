@@ -1,8 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_database/firebase_database.dart';
+import 'firebase_options.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+
   runApp(const MyRadioApp());
 }
 
@@ -16,7 +25,6 @@ class MyRadioApp extends StatelessWidget {
       title: 'Radio Adventista en Reforma',
       theme: ThemeData(
         useMaterial3: true,
-        fontFamily: 'Roboto',
         colorScheme: ColorScheme.fromSeed(
           seedColor: const Color(0xFF0F4C81),
           brightness: Brightness.dark,
@@ -36,6 +44,12 @@ class RadioHomePage extends StatefulWidget {
 
 class _RadioHomePageState extends State<RadioHomePage> {
   final AudioPlayer _player = AudioPlayer();
+
+  // CAMBIA ESTA URL POR LA TUYA REAL
+  final DatabaseReference messagesRef = FirebaseDatabase.instanceFor(
+    app: Firebase.app(),
+    databaseURL: 'https://radio-adventista-reforma-default-rtdb.firebaseio.com/',
+  ).ref('mensajes_cabina');
 
   bool isPlaying = false;
   bool isLoading = true;
@@ -157,6 +171,119 @@ class _RadioHomePageState extends State<RadioHomePage> {
     }
   }
 
+  Future<void> sendMessageToCabina(String nombre, String mensaje) async {
+    try {
+      await messagesRef.push().set({
+        'nombre': nombre.trim(),
+        'mensaje': mensaje.trim(),
+        'fecha': DateTime.now().toIso8601String(),
+        'leido': false,
+      });
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Mensaje enviado a cabina')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error al enviar mensaje: $e')),
+      );
+    }
+  }
+
+  void openMessageDialog() {
+    final TextEditingController nombreController = TextEditingController();
+    final TextEditingController mensajeController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF10263A),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          title: const Text(
+            'Enviar mensaje a cabina',
+            style: TextStyle(color: Colors.white),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nombreController,
+                style: const TextStyle(color: Colors.white),
+                decoration: InputDecoration(
+                  labelText: 'Tu nombre',
+                  labelStyle: const TextStyle(color: Colors.white70),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide:
+                        BorderSide(color: Colors.white.withOpacity(0.2)),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Colors.blueAccent),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 14),
+              TextField(
+                controller: mensajeController,
+                maxLines: 4,
+                style: const TextStyle(color: Colors.white),
+                decoration: InputDecoration(
+                  labelText: 'Escribe tu mensaje',
+                  labelStyle: const TextStyle(color: Colors.white70),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide:
+                        BorderSide(color: Colors.white.withOpacity(0.2)),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Colors.blueAccent),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text(
+                'Cancelar',
+                style: TextStyle(color: Colors.white70),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                final nombre = nombreController.text.trim();
+                final mensaje = mensajeController.text.trim();
+
+                if (nombre.isEmpty || mensaje.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Completa tu nombre y mensaje'),
+                    ),
+                  );
+                  return;
+                }
+
+                await sendMessageToCabina(nombre, mensaje);
+
+                if (!mounted) return;
+                Navigator.pop(context);
+              },
+              child: const Text('Enviar'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   void dispose() {
     _player.dispose();
@@ -250,6 +377,7 @@ class _RadioHomePageState extends State<RadioHomePage> {
                   ),
                 ),
                 const SizedBox(height: 20),
+
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(24),
@@ -326,7 +454,8 @@ class _RadioHomePageState extends State<RadioHomePage> {
                         child: Text(
                           isPlaying ? '● EN DIRECTO' : '● TRANSMISIÓN ONLINE',
                           style: TextStyle(
-                            color: isPlaying ? Colors.redAccent : Colors.white70,
+                            color:
+                                isPlaying ? Colors.redAccent : Colors.white70,
                             fontWeight: FontWeight.bold,
                             letterSpacing: 1.2,
                           ),
@@ -342,6 +471,7 @@ class _RadioHomePageState extends State<RadioHomePage> {
                         ),
                       ),
                       const SizedBox(height: 24),
+
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         crossAxisAlignment: CrossAxisAlignment.end,
@@ -361,7 +491,9 @@ class _RadioHomePageState extends State<RadioHomePage> {
                           waveBar(18, 0.35),
                         ],
                       ),
+
                       const SizedBox(height: 28),
+
                       GestureDetector(
                         onTap: toggleRadio,
                         child: Container(
@@ -405,6 +537,7 @@ class _RadioHomePageState extends State<RadioHomePage> {
                           ),
                         ),
                       ),
+
                       const SizedBox(height: 14),
                       Text(
                         isPlaying ? 'Toca para pausar' : 'Toca para reproducir',
@@ -416,7 +549,9 @@ class _RadioHomePageState extends State<RadioHomePage> {
                     ],
                   ),
                 ),
+
                 const SizedBox(height: 22),
+
                 Row(
                   children: [
                     actionButton(
@@ -433,12 +568,45 @@ class _RadioHomePageState extends State<RadioHomePage> {
                     const SizedBox(width: 12),
                     actionButton(
                       icon: Icons.message_outlined,
-                      text: 'WhatsApp',
-                      onTap: () => openLink(whatsappUrl),
+                      text: 'Cabina',
+                      onTap: openMessageDialog,
                     ),
                   ],
                 ),
+
+                const SizedBox(height: 16),
+
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => CabinaScreen(
+                            databaseUrl: 'https://radio-adventista-reforma-default-rtdb.firebaseio.com/',
+                          ),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.graphic_eq),
+                    label: const Text('Ver mensajes de cabina'),
+                  ),
+                ),
+
+                const SizedBox(height: 16),
+
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: () => openLink(whatsappUrl),
+                    icon: const Icon(Icons.message),
+                    label: const Text('Abrir WhatsApp'),
+                  ),
+                ),
+
                 const SizedBox(height: 24),
+
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(18),
@@ -475,6 +643,126 @@ class _RadioHomePageState extends State<RadioHomePage> {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class CabinaScreen extends StatelessWidget {
+  final String databaseUrl;
+
+  const CabinaScreen({
+    super.key,
+    required this.databaseUrl,
+  });
+
+  DatabaseReference get messagesRef => FirebaseDatabase.instanceFor(
+        app: Firebase.app(),
+        databaseURL: databaseUrl,
+      ).ref('mensajes_cabina');
+
+  String formatFecha(String? fecha) {
+    if (fecha == null || fecha.isEmpty) return 'Sin hora';
+    try {
+      final date = DateTime.parse(fecha).toLocal();
+      return '${date.day.toString().padLeft(2, '0')}/'
+          '${date.month.toString().padLeft(2, '0')}/'
+          '${date.year} '
+          '${date.hour.toString().padLeft(2, '0')}:'
+          '${date.minute.toString().padLeft(2, '0')}';
+    } catch (_) {
+      return fecha;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFF081521),
+      appBar: AppBar(
+        title: const Text('Cabina en vivo'),
+        backgroundColor: const Color(0xFF10263A),
+        foregroundColor: Colors.white,
+      ),
+      body: StreamBuilder<DatabaseEvent>(
+        stream: messagesRef.onValue,
+        builder: (context, snapshot) {
+          if (snapshot.hasError) {
+            return const Center(
+              child: Text(
+                'Error al cargar mensajes',
+                style: TextStyle(color: Colors.white),
+              ),
+            );
+          }
+
+          if (!snapshot.hasData ||
+              snapshot.data == null ||
+              snapshot.data!.snapshot.value == null) {
+            return const Center(
+              child: Text(
+                'No hay mensajes todavía',
+                style: TextStyle(color: Colors.white70, fontSize: 16),
+              ),
+            );
+          }
+
+          final data = snapshot.data!.snapshot.value as Map<dynamic, dynamic>;
+          final items = data.entries.toList().reversed.toList();
+
+          return ListView.builder(
+            padding: const EdgeInsets.all(16),
+            itemCount: items.length,
+            itemBuilder: (context, index) {
+              final item = items[index];
+              final value = item.value as Map<dynamic, dynamic>;
+
+              final nombre = value['nombre']?.toString() ?? 'Sin nombre';
+              final mensaje = value['mensaje']?.toString() ?? '';
+              final fecha = value['fecha']?.toString();
+
+              return Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(color: Colors.white.withOpacity(0.08)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      nombre,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      mensaje,
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 15,
+                        height: 1.4,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      formatFecha(fecha),
+                      style: const TextStyle(
+                        color: Colors.white38,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          );
+        },
       ),
     );
   }
